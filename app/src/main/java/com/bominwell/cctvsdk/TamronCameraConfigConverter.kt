@@ -35,6 +35,40 @@ object TamronCameraConfigConverter {
     private const val EXP_GAIN_MAX_CODE = 0x1C
     private const val FOCUS_NEAR_LIMIT_MIN_MM = 10
     private const val FOCUS_NEAR_LIMIT_MAX_MM = 800
+    private const val ZOOM_POSITION_MIN = 0x0000
+    private const val ZOOM_POSITION_OPTICAL_MAX = 0x4000
+    private const val ZOOM_POSITION_DIGITAL_MAX = 0x7C00
+
+    private val OPTICAL_ZOOM_POINTS = intArrayOf(
+        0x0000, // 1x
+        0x18C3, // 2x
+        0x2430, // 3x
+        0x2B0C, // 4x
+        0x3049, // 5x
+        0x3430, // 6x
+        0x37CF, // 7x
+        0x3AAA, // 8x
+        0x3D86, // 9x
+        0x4000  // 10x
+    )
+
+    private val DIGITAL_ZOOM_POSITIONS = intArrayOf(
+        0x4000, // digital 1x
+        0x6000, // digital 2x
+        0x7000, // digital 4x
+        0x7800, // digital 8x
+        0x7A80, // digital 12x
+        0x7C00  // digital 16x
+    )
+
+    private val DIGITAL_ZOOM_RATIOS = floatArrayOf(
+        1f,
+        2f,
+        4f,
+        8f,
+        12f,
+        16f
+    )
 
     /**
      * 查询兼容表。
@@ -313,6 +347,22 @@ object TamronCameraConfigConverter {
         return "${focusNearLimitPercentToMm(percent)} mm"
     }
 
+    @JvmStatic
+    fun zoomPositionToMagnification(position: Int): Float {
+        val safePosition = position.coerceIn(ZOOM_POSITION_MIN, ZOOM_POSITION_DIGITAL_MAX)
+        return if (safePosition <= ZOOM_POSITION_OPTICAL_MAX) {
+            opticalZoomPositionToRatio(safePosition)
+        } else {
+            10f * interpolateByPosition(safePosition, DIGITAL_ZOOM_POSITIONS, DIGITAL_ZOOM_RATIOS)
+        }
+    }
+
+    @JvmStatic
+    fun zoomPositionToDisplayText(position: Int?): String {
+        if (position == null) return "--"
+        return "x${formatZoomRatio(zoomPositionToMagnification(position))}"
+    }
+
     /**
      * 机芯 Iris code 转显示文本。
      */
@@ -388,6 +438,41 @@ object TamronCameraConfigConverter {
         }
 
         return nearestIndex
+    }
+
+    private fun opticalZoomPositionToRatio(position: Int): Float {
+        for (i in 1 until OPTICAL_ZOOM_POINTS.size) {
+            val end = OPTICAL_ZOOM_POINTS[i]
+            if (position <= end) {
+                val start = OPTICAL_ZOOM_POINTS[i - 1]
+                val fraction = if (end == start) 0f else (position - start).toFloat() / (end - start)
+                return i + fraction
+            }
+        }
+        return 10f
+    }
+
+    private fun interpolateByPosition(position: Int, positions: IntArray, ratios: FloatArray): Float {
+        for (i in 1 until positions.size) {
+            val end = positions[i]
+            if (position <= end) {
+                val start = positions[i - 1]
+                val startRatio = ratios[i - 1]
+                val endRatio = ratios[i]
+                val fraction = if (end == start) 0f else (position - start).toFloat() / (end - start)
+                return startRatio + (endRatio - startRatio) * fraction
+            }
+        }
+        return ratios.last()
+    }
+
+    private fun formatZoomRatio(value: Float): String {
+        val roundedTenth = roundToInt(value * 10f)
+        return if (roundedTenth % 10 == 0) {
+            (roundedTenth / 10).toString()
+        } else {
+            "${roundedTenth / 10}.${roundedTenth % 10}"
+        }
     }
 
     private fun roundToInt(value: Float): Int {

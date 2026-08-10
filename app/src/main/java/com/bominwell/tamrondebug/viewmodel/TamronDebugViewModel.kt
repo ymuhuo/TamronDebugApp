@@ -262,6 +262,7 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
                 send("wdr") { repository.camera.setWdr(snapshot.wdr) }
                 send("blc") { repository.camera.setBackLight(snapshot.blc) }
                 send("eis") { repository.camera.setEis(snapshot.eis) }
+                send("digitalZoom") { repository.camera.setDigitalZoom(snapshot.digitalZoom) }
                 send("flicker") { repository.camera.setFlickerMode(snapshot.flickerMode) }
                 send("defog") { repository.camera.setDefog(snapshot.defog, snapshot.defogLevel) }
 
@@ -286,6 +287,14 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
         } else {
             restoreRecordedParams(first.fileName)
         }
+    }
+
+    fun savePowerOnConfig() = runCommand(text(R.string.command_save_power_on_config)) {
+        val result = repository.camera.savePowerOnSettings()
+        if (result.success && !result.hasViscaError) {
+            delay(POWER_ON_CONFIG_SETTLE_MS)
+        }
+        result
     }
 
     fun deleteParamRecord(fileName: String) {
@@ -321,7 +330,11 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
 
     fun zoomTeleStart() = runCommand(text(R.string.command_zoom_tele)) { repository.camera.zoomTele(state.value.zoomSpeed) }
     fun zoomWideStart() = runCommand(text(R.string.command_zoom_wide)) { repository.camera.zoomWide(state.value.zoomSpeed) }
-    fun zoomStop() = runCommand(text(R.string.command_zoom_stop)) { repository.camera.zoomStop() }
+    fun zoomStop() = runCommand(text(R.string.command_zoom_stop)) {
+        val result = repository.camera.zoomStop()
+        refreshZoomPosition()
+        result
+    }
 
     fun focusFarStart() = runCommand(text(R.string.command_focus_far)) {
         ensureManualFocusForJog()
@@ -515,6 +528,13 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
         _state.update { it.copy(eis = value) }
         runCommand(text(R.string.command_switch_state, text(R.string.label_eis), onOff(value))) {
             repository.camera.setEis(value)
+        }
+    }
+
+    fun setDigitalZoom(value: Boolean) {
+        _state.update { it.copy(digitalZoom = value) }
+        runCommand(text(R.string.command_switch_state, text(R.string.label_digital_zoom), onOff(value))) {
+            repository.camera.setDigitalZoom(value)
         }
     }
 
@@ -952,6 +972,7 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
 
         return RecordedCameraParams(
             zoomSpeed = fallback.zoomSpeed,
+            zoomPositionCode = raw.zoomPositionCode ?: fallback.zoomPositionCode,
             focusSpeed = fallback.focusSpeed,
             focusAuto = focusAuto,
             focusNearLimitPercent = fallback.focusNearLimitPercent,
@@ -980,6 +1001,7 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
             wdr = codeToSwitch(raw.wdrCode, fallback.wdr),
             blc = codeToSwitch(raw.blcCode, fallback.blc),
             eis = codeToSwitch(raw.eisCode, fallback.eis),
+            digitalZoom = codeToSwitch(raw.digitalZoomCode, fallback.digitalZoom),
             flickerMode = enumByCode(raw.flickerCode, FlickerMode.values(), fallback.flickerMode) { it.code },
             defog = codeToSwitch(raw.defogCode, fallback.defog),
             defogLevel = fallback.defogLevel
@@ -990,6 +1012,8 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
         _state.update {
             it.copy(
                 zoomSpeed = snapshot.zoomSpeed,
+                zoomPositionCode = snapshot.zoomPositionCode,
+                zoomMagnificationText = TamronCameraConfigConverter.zoomPositionToDisplayText(snapshot.zoomPositionCode),
                 focusSpeed = snapshot.focusSpeed,
                 focusAuto = snapshot.focusAuto,
                 focusNearLimitPercent = snapshot.focusNearLimitPercent,
@@ -1014,6 +1038,7 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
                 wdr = snapshot.wdr,
                 blc = snapshot.blc,
                 eis = snapshot.eis,
+                digitalZoom = snapshot.digitalZoom,
                 flickerMode = snapshot.flickerMode,
                 defog = snapshot.defog,
                 defogLevel = snapshot.defogLevel
@@ -1029,6 +1054,17 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
                 bitRateKbps = normalizeBitRate(config.bitRateKbps),
                 rateControlMode = config.rateControlMode
             )
+        }
+    }
+
+    private suspend fun refreshZoomPosition() {
+        repository.camera.queryZoomPosition()?.let { position ->
+            _state.update {
+                it.copy(
+                    zoomPositionCode = position,
+                    zoomMagnificationText = TamronCameraConfigConverter.zoomPositionToDisplayText(position)
+                )
+            }
         }
     }
 
@@ -1118,12 +1154,14 @@ class TamronDebugViewModel(application: Application) : AndroidViewModel(applicat
         const val MAX_BIT_RATE_KBPS = 21504
         const val EXPOSURE_MODE_SETTLE_MS = 350L
         const val FINAL_VALUE_RESEND_DELAY_MS = 120L
+        const val POWER_ON_CONFIG_SETTLE_MS = 1500L
         val ALLOWED_FRAME_RATES = intArrayOf(25, 30, 50, 60)
     }
 }
 
 private data class RecordedCameraParams(
     val zoomSpeed: Int,
+    val zoomPositionCode: Int?,
     val focusSpeed: Int,
     val focusAuto: Boolean,
     val focusNearLimitPercent: Int,
@@ -1148,6 +1186,7 @@ private data class RecordedCameraParams(
     val wdr: Boolean,
     val blc: Boolean,
     val eis: Boolean,
+    val digitalZoom: Boolean,
     val flickerMode: FlickerMode,
     val defog: Boolean,
     val defogLevel: Int,
@@ -1159,6 +1198,7 @@ private data class RecordedCameraParams(
             .put("recordName", recordName)
             .put("createdAtMillis", createdAtMillis)
             .put("zoomSpeed", zoomSpeed)
+            .put("zoomPositionCode", zoomPositionCode)
             .put("focusSpeed", focusSpeed)
             .put("focusAuto", focusAuto)
             .put("focusNearLimitPercent", focusNearLimitPercent)
@@ -1183,6 +1223,7 @@ private data class RecordedCameraParams(
             .put("wdr", wdr)
             .put("blc", blc)
             .put("eis", eis)
+            .put("digitalZoom", digitalZoom)
             .put("flickerMode", flickerMode.name)
             .put("defog", defog)
             .put("defogLevel", defogLevel)
@@ -1193,6 +1234,7 @@ private data class RecordedCameraParams(
             val defaults = TamronDebugState()
             return RecordedCameraParams(
                 zoomSpeed = json.optInt("zoomSpeed", defaults.zoomSpeed).coerceIn(0, 7),
+                zoomPositionCode = json.optNullableInt("zoomPositionCode"),
                 focusSpeed = json.optInt("focusSpeed", defaults.focusSpeed).coerceIn(0, 7),
                 focusAuto = json.optBoolean("focusAuto", defaults.focusAuto),
                 focusNearLimitPercent = json.optInt("focusNearLimitPercent", defaults.focusNearLimitPercent).coerceIn(0, 100),
@@ -1217,6 +1259,7 @@ private data class RecordedCameraParams(
                 wdr = json.optBoolean("wdr", defaults.wdr),
                 blc = json.optBoolean("blc", defaults.blc),
                 eis = json.optBoolean("eis", defaults.eis),
+                digitalZoom = json.optBoolean("digitalZoom", defaults.digitalZoom),
                 flickerMode = enumByName(json.optString("flickerMode"), FlickerMode.values(), defaults.flickerMode),
                 defog = json.optBoolean("defog", defaults.defog),
                 defogLevel = json.optInt("defogLevel", defaults.defogLevel).coerceIn(0, 3),
@@ -1227,6 +1270,10 @@ private data class RecordedCameraParams(
 
         private fun <T : Enum<T>> enumByName(name: String, values: Array<T>, fallback: T): T {
             return values.firstOrNull { it.name == name } ?: fallback
+        }
+
+        private fun JSONObject.optNullableInt(name: String): Int? {
+            return if (has(name) && !isNull(name)) optInt(name) else null
         }
     }
 }

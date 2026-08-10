@@ -300,6 +300,14 @@ fun TamronDebugScreen(vm: TamronDebugViewModel) {
                             Text(stringResource(R.string.button_restore_params))
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = vm::savePowerOnConfig,
+                        enabled = !s.busy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.button_save_power_on_config))
+                    }
                 }
             }
 
@@ -334,6 +342,8 @@ fun TamronDebugScreen(vm: TamronDebugViewModel) {
                     Button(onClick = vm::onePushFocus, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.button_one_push_focus))
                     }
+                    Text(stringResource(R.string.label_zoom_magnification, s.zoomMagnificationText))
+                    SwitchLine(stringResource(R.string.label_digital_zoom), s.digitalZoom, vm::setDigitalZoom)
                     IntSliderRow(stringResource(R.string.label_zoom_speed), s.zoomSpeed, 0..7, vm::setZoomSpeed)
                     IntSliderRow(stringResource(R.string.label_focus_speed), s.focusSpeed, 0..7, vm::setFocusSpeed)
                     IntSliderRow(

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
 object TamronHttpViscaClient : Closeable {
 
     private const val TAG = "TamronHttpVisca"
+    private const val CUSTOM_SAVE_TIMEOUT_MS = 3000
 
     enum class HttpBodyMode {
         RAW_JSON_BODY,
@@ -265,6 +266,7 @@ object TamronHttpViscaClient : Closeable {
     @JvmStatic suspend fun setWdr(enable: Boolean) = sendCameraCommand(0x01, 0x04, 0x3D, if (enable) 0x02 else 0x03)
     @JvmStatic suspend fun setBackLight(enable: Boolean) = sendCameraCommand(0x01, 0x04, 0x33, if (enable) 0x02 else 0x03)
     @JvmStatic suspend fun setEis(enable: Boolean) = sendCameraCommand(0x01, 0x04, 0x34, if (enable) 0x02 else 0x03)
+    @JvmStatic suspend fun setDigitalZoom(enable: Boolean) = sendCameraCommand(0x01, 0x04, 0x06, if (enable) 0x02 else 0x03)
     @JvmStatic suspend fun setFlickerMode(mode: FlickerMode) = sendCameraCommand(0x01, 0x04, 0x09, mode.code)
     @JvmStatic suspend fun setDefog(enable: Boolean, level: Int = 2) = if (enable) sendCameraCommand(0x01, 0x04, 0x37, 0x02, level.coerceIn(0, 3)) else sendCameraCommand(0x01, 0x04, 0x37, 0x03, 0x00)
     @JvmStatic suspend fun setNoiseReduction(nr3d: Int, nr2d: Int) = sendCameraCommand(0x01, 0x04, 0x53, (nr3d.coerceIn(0, 5) shl 4) or nr2d.coerceIn(0, 5))
@@ -277,6 +279,14 @@ object TamronHttpViscaClient : Closeable {
         }
     }
 
+    @JvmStatic suspend fun savePowerOnSettings(timeoutMs: Int = CUSTOM_SAVE_TIMEOUT_MS): ViscaHttpResult {
+        val cfg = requireConfig()
+        return sendViscaBytes(
+            buildViscaCommand(cfg.address, 0x01, 0x04, 0x3F, 0x01, 0x7F),
+            timeoutMs = timeoutMs
+        )
+    }
+
     // =========================================================
     // 查询
     // =========================================================
@@ -284,10 +294,11 @@ object TamronHttpViscaClient : Closeable {
     data class CameraConfigRawState(
         var wbModeCode: Int? = null, var wbRedCode: Int? = null, var wbBlueCode: Int? = null,
         var expModeCode: Int? = null, var gainCode: Int? = null, var irisCode: Int? = null,
-        var shutterCode: Int? = null, var expCompCode: Int? = null, var sharpnessCode: Int? = null,
+        var shutterCode: Int? = null, var zoomPositionCode: Int? = null,
+        var expCompCode: Int? = null, var sharpnessCode: Int? = null,
         var nrCode: Int? = null, var colorGainCode: Int? = null, var colorHueCode: Int? = null,
         var gammaCode: Int? = null, var icrCode: Int? = null, var wdrCode: Int? = null, var eisCode: Int? = null,
-        var flickerCode: Int? = null,
+        var digitalZoomCode: Int? = null, var flickerCode: Int? = null,
         var blcCode: Int? = null, var defogCode: Int? = null, var focusModeCode: Int? = null
     )
 
@@ -300,6 +311,7 @@ object TamronHttpViscaClient : Closeable {
             gainCode = queryLastNibbles(0x09, 0x04, 0x4C),
             irisCode = queryLastNibbles(0x09, 0x04, 0x4B),
             shutterCode = queryLastNibbles(0x09, 0x04, 0x4A),
+            zoomPositionCode = queryLastNibbles(0x09, 0x04, 0x47),
             expCompCode = queryLastNibbles(0x09, 0x04, 0x4E),
             sharpnessCode = queryLastNibbles(0x09, 0x04, 0x42),
             nrCode = queryOneByte(0x09, 0x04, 0x53),
@@ -309,11 +321,16 @@ object TamronHttpViscaClient : Closeable {
             icrCode = queryOneByte(0x09, 0x04, 0x01),
             wdrCode = queryOneByte(0x09, 0x04, 0x3D),
             eisCode = queryOneByte(0x09, 0x04, 0x34),
+            digitalZoomCode = queryOneByte(0x09, 0x04, 0x06),
             flickerCode = queryOneByte(0x09, 0x04, 0x09),
             blcCode = queryOneByte(0x09, 0x04, 0x33),
             defogCode = queryOneByte(0x09, 0x04, 0x37),
             focusModeCode = queryOneByte(0x09, 0x04, 0x38)
         )
+    }
+
+    @JvmStatic suspend fun queryZoomPosition(): Int? {
+        return queryLastNibbles(0x09, 0x04, 0x47)
     }
 
     private suspend fun queryOneByte(vararg body: Int): Int? {

@@ -15,6 +15,7 @@
     <string name="button_read_params">Read Params</string>
     <string name="button_record_params">Record Params</string>
     <string name="button_restore_params">Restore Params</string>
+    <string name="button_save_power_on_config">Save Power-On Config</string>
     <string name="section_zoom_focus">Zoom / Focus</string>
     <string name="button_zoom_in">Zoom +</string>
     <string name="button_zoom_out">Zoom -</string>
@@ -23,6 +24,8 @@
     <string name="focus_auto">Auto Focus</string>
     <string name="focus_manual">Manual Focus</string>
     <string name="button_one_push_focus">One Push Focus</string>
+    <string name="label_zoom_magnification">Current Zoom: %1$s</string>
+    <string name="label_digital_zoom">Digital Zoom</string>
     <string name="label_zoom_speed">Zoom Speed</string>
     <string name="label_focus_speed">Focus Speed</string>
     <string name="label_focus_near_limit">Focus Near Limit</string>
@@ -118,6 +121,7 @@
     <string name="command_switch_state">%1$s %2$s</string>
     <string name="command_set_defog_level">Set Defog Level</string>
     <string name="command_set_encode_config">Set Encode Config</string>
+    <string name="command_save_power_on_config">Save Camera Power-On Config</string>
     <string name="log_success">%1$s success: %2$s</string>
     <string name="log_failure">%1$s failed: %2$s</string>
     <string name="log_failure_with_detail">%1$s failed: %2$s, %3$s</string>

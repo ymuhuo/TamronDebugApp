@@ -23,6 +23,8 @@
     <string name="focus_auto">自动聚焦</string>
     <string name="focus_manual">手动聚焦</string>
     <string name="button_one_push_focus">一键聚焦</string>
+    <string name="label_zoom_magnification">当前变倍: %1$s</string>
+    <string name="label_digital_zoom">数字变倍</string>
     <string name="label_zoom_speed">变倍速度</string>
     <string name="label_focus_speed">聚焦速度</string>
     <string name="label_focus_near_limit">最近聚焦距离</string>
@@ -126,4 +128,6 @@
     <string name="media_type_record">录像</string>
     <string name="media_type_screenshot">截图</string>
     <string name="default_record_name">默认记录</string>
+    <string name="button_save_power_on_config">保存上电配置</string>
+    <string name="command_save_power_on_config">保存相机上电配置</string>
 </resources>

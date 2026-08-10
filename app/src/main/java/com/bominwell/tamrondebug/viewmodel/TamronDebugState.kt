@@ -30,6 +30,8 @@ data class TamronDebugState(
     val playbackBitRateKbps: Int = 0,
 
     val zoomSpeed: Int = 3,
+    val zoomPositionCode: Int? = null,
+    val zoomMagnificationText: String = "--",
     val focusSpeed: Int = 2,
     val focusAuto: Boolean = true,
     val focusNearLimitPercent: Int = 50,
@@ -58,6 +60,7 @@ data class TamronDebugState(
     val wdr: Boolean = false,
     val blc: Boolean = false,
     val eis: Boolean = false,
+    val digitalZoom: Boolean = false,
     val flickerMode: FlickerMode = FlickerMode.OFF,
     val defog: Boolean = false,
     val defogLevel: Int = 2,
